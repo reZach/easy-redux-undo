@@ -16,32 +16,53 @@ const undoable = function (reducer) {
 
         switch (action.type) {
             case UNDO:
-                let lastChange = past[past.length - 1];
-                diff.revertChange(present, true, lastChange);
-                break;
+                {
+                    let lastChange = past[past.length - 1];
+                    let newPast = past.slice(0, past.length - 1);
+                    diff.revertChange(present, true, lastChange);
+    
+                    return {
+                        past: newPast,
+                        present,
+                        future: [lastChange, ...future]
+                    };
+                }
             case REDO:
-
-            break;
+                {
+                    let lastChange = future[0];
+                    let newFuture = future.slice(1);
+                    diff.applyChange(present, true, lastChange);
+    
+                    return {
+                        past: [...past, lastChange],
+                        present,
+                        future: newFuture
+                    }
+                }
             default:
-                const newPresent = reducer(present, action);
+                {
+                    const newPresent = reducer(present, action);
 
-                // If the action did not alter the state,
-                // return the initial state
-                if (newPresent === state){
-                    return state;
+                    // If the action did not alter the state,
+                    // return the initial state
+                    if (newPresent === state){
+                        return state;
+                    }
+    
+                    let actionDiff;
+                    let newPast = past;
+                    
+                    if (typeof newPresent === "object"){
+                        actionDiff = diff(present, newPresent);
+                        newPast = [...past, actionDiff];
+                    }
+    
+                    return {
+                        past: newPast,
+                        present: newPresent,
+                        future: []
+                    };
                 }
-
-                let actionDiff;
-                
-                if (typeof newPresent === "object"){
-                    actionDiff = diff(present, newPresent);
-                }
-
-                return {
-                    past: [...past, actionDiff],
-                    present: newPresent,
-                    future: []
-                };
             break;
         }
     }
