@@ -86,9 +86,28 @@ const undoable = function (reducer, options = defaultOptions) {
             }
             default: {                
                 const newPresent = reducer(present, action);
-                
-                if (typeof newPresent === "object"){
-                    let actionDiff = diff(present, newPresent);
+                let actionDiff;
+
+                if (Array.isArray(newPresent)){
+
+                    // We can only compare arrays if they stay in place
+                    // and do not switch indecees. With this assumption,
+                    // let's compare each element
+                    // for (let i = 0; i < newPresent.length; i++){
+                    //     for (let j = 0; j < present.length; j++){
+                    //         if (i !== j){
+                    //             actionDiff = diff(present[j], newPresent[i]);
+
+
+                    //         }
+                    //     }
+                        
+                    //     if (typeof actionDiff )
+                    // }
+
+                    
+                } else if (typeof newPresent === "object"){
+                    actionDiff = diff(present, newPresent);
 
                     // If the action did not alter the state,
                     // return the initial state
