@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@reduxjs/toolkit": "1.2.3",
-    "deep-diff": "^1.0.2"
+    "deep-diff": "^1.0.2",
+    "lodash": "^4.17.15"
   }
 }

@@ -1,4 +1,5 @@
 import { createAction } from "@reduxjs/toolkit";
+const _ = require("lodash");
 const diff = require("deep-diff").diff;
 
 const UNDOSTR = "@@UNDO";
@@ -41,13 +42,12 @@ const undoable = function (reducer, options = defaultOptions) {
                     };
                 }
                 
+                // We use obj destructuring above, and so need
+                // to create a new reference to edit the state
                 let lastChange = past[past.length - 1];
-                let newPast = past.slice(0, past.length - 1);
+                let newPast = past.slice(0, past.length - 1);                
+                let newPresent = _.cloneDeep(present);
 
-                // Need to call Object.assign because we use
-                // obj destructuring above and the below method (.revertChange)
-                // cannot modify an existing obj reference 
-                let newPresent = Object.assign({}, present);
                 for (let i = 0; i < lastChange.length; i++){
                     diff.revertChange(newPresent, true, lastChange[i]);
                 }
@@ -67,13 +67,12 @@ const undoable = function (reducer, options = defaultOptions) {
                     };
                 }
 
+                // We use obj destructuring above, and so need
+                // to create a new reference to edit the state
                 let lastChange = future[0];
                 let newFuture = future.slice(1);
+                let newPresent = _.cloneDeep(present);
 
-                // Need to call Object.assign because we use
-                // obj destructuring above and the below method (.applyChange)
-                // cannot modify an existing obj reference 
-                let newPresent = Object.assign({}, present);
                 for (let i = 0; i < lastChange.length; i++){
                     diff.applyChange(newPresent, true, lastChange[i]);
                 }
@@ -88,25 +87,7 @@ const undoable = function (reducer, options = defaultOptions) {
                 const newPresent = reducer(present, action);
                 let actionDiff;
 
-                if (Array.isArray(newPresent)){
-
-                    // We can only compare arrays if they stay in place
-                    // and do not switch indecees. With this assumption,
-                    // let's compare each element
-                    // for (let i = 0; i < newPresent.length; i++){
-                    //     for (let j = 0; j < present.length; j++){
-                    //         if (i !== j){
-                    //             actionDiff = diff(present[j], newPresent[i]);
-
-
-                    //         }
-                    //     }
-                        
-                    //     if (typeof actionDiff )
-                    // }
-
-                    
-                } else if (typeof newPresent === "object"){
+                if (typeof newPresent === "object"){
                     actionDiff = diff(present, newPresent);
 
                     // If the action did not alter the state,
