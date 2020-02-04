@@ -2,13 +2,15 @@ import { createAction } from "@reduxjs/toolkit";
 const _ = require("lodash");
 const diff = require("deep-diff").diff;
 
-const UNDOSTR = "@@UNDO";
-const REDOSTR = "@@REDO";
+const WRAPKEY = "__wrapper";
+const UNDOSTR = "@@easy-redux-undo/UNDO";
+const REDOSTR = "@@easy-redux-undo/REDO";
 const UNDO = createAction(UNDOSTR);
 const REDO = createAction(REDOSTR);
 
 const defaultOptions = {
-    maxHistory: 20
+    debug: false,
+    maxHistory: 40
 };
 
 const undoable = function (reducer, options = defaultOptions) {
@@ -48,13 +50,20 @@ const undoable = function (reducer, options = defaultOptions) {
                 let newPast = past.slice(0, past.length - 1);                
                 let newPresent = _.cloneDeep(present);
 
+                // Need to wrap present in object if state is
+                // an array, because deep-diff can't handle
+                // comparisons of arrays
+                if (Array.isArray(newPresent)){
+                    newPresent[`${WRAPKEY}`] = newPresent;
+                }
+
                 for (let i = 0; i < lastChange.length; i++){
                     diff.revertChange(newPresent, true, lastChange[i]);
                 }
 
                 return {
                     past: newPast,
-                    present: newPresent,
+                    present: Array.isArray(newPresent) ? newPresent[`${WRAPKEY}`] : newPresent,
                     future: [lastChange, ...future]
                 };
             }
@@ -73,35 +82,50 @@ const undoable = function (reducer, options = defaultOptions) {
                 let newFuture = future.slice(1);
                 let newPresent = _.cloneDeep(present);
 
+                // Need to wrap present in object if state is
+                // an array, because deep-diff can't handle
+                // comparisons of arrays
+                if (Array.isArray(newPresent)){
+                    newPresent[`${WRAPKEY}`] = newPresent;
+                }
+
                 for (let i = 0; i < lastChange.length; i++){
                     diff.applyChange(newPresent, true, lastChange[i]);
                 }
 
                 return {
                     past: [...past, lastChange],
-                    present: newPresent,
+                    present: Array.isArray(newPresent) ? newPresent[`${WRAPKEY}`] : newPresent,
                     future: newFuture
                 }
             }
-            default: {                
+            default: {
                 const newPresent = reducer(present, action);
                 let actionDiff;
 
-                if (typeof newPresent === "object"){
+                // If state is an array, deep-diff can't handle
+                // comparing arrays, so we wrap the array in an object
+                if (Array.isArray(newPresent)){
+                    actionDiff = diff({
+                        WRAPKEY: present
+                    }, {
+                        WRAPKEY: newPresent
+                    });
+                } else if (typeof newPresent === "object"){
                     actionDiff = diff(present, newPresent);
-
-                    // If the action did not alter the state,
-                    // return the initial state
-                    if (typeof actionDiff === "undefined"){
-                        return state;
-                    }
-                    
-                    return {
-                        past: [...past.slice(past.length === options.maxHistory ? 1 : 0), actionDiff], // If maxHistory is defined, don't store than x number of events in the past                        
-                        present: newPresent,
-                        future: []
-                    };
                 }
+
+                // If the action did not alter the state,
+                // return the initial state
+                if (typeof actionDiff === "undefined"){
+                    return state;
+                }
+                
+                return {
+                    past: [...past.slice(past.length === options.maxHistory ? 1 : 0), actionDiff], // If maxHistory is defined, don't store than x number of events in the past                        
+                    present: newPresent,
+                    future: []
+                };
             }
         }
     }
