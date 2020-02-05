@@ -5,15 +5,21 @@ const _ = require("lodash");
 const diff = require("deep-diff").diff;
 
 const WRAPKEY = "__wrapper";
-const UNDOSTR = "@@easy-redux-undo/UNDO";
-const REDOSTR = "@@easy-redux-undo/REDO";
-const UNDO = createAction(UNDOSTR);
-const REDO = createAction(REDOSTR);
+const LIBRARYPREFIX = "@@easy-redux-undo/";
+const UNDOACTION = `${LIBRARYPREFIX}UNDO`;
+const REDOACTION = `${LIBRARYPREFIX}REDO`;
+const CLEARACTION = `${LIBRARYPREFIX}CLEAR`;
+const GROUPBEGIN = `${LIBRARYPREFIX}GROUPBEGIN`;
+const GROUPEND = `${LIBRARYPREFIX}GROUPEND`;
+const UNDO = createAction(UNDOACTION);
+const REDO = createAction(REDOACTION);
+const CLEAR = createAction(CLEARACTION);
 
 const defaultOptions = {
     maxHistory: 100,
-    undoType: UNDOSTR,
-    redoType: REDOSTR
+    undoType: UNDOACTION,
+    redoType: REDOACTION,
+    clearType: CLEARACTION
 };
 
 const undoable = function (reducer, options = {}) {
@@ -43,7 +49,21 @@ const undoable = function (reducer, options = {}) {
         let actionCount = typeof action.payload === "number" && action.payload > 0 ? action.payload : 1;
 
         switch (action.type) {
-            case UNDOSTR: {
+            case GROUPBEGIN: {
+                return {
+                    past: [...past, GROUPBEGIN],
+                    present,
+                    future
+                };
+            }
+            case GROUPEND: {
+                return {
+                    past: [...past, GROUPEND],
+                    present,
+                    future
+                };
+            }
+            case UNDOACTION: {
                 if (past.length === 0) {
                     return {
                         past,
@@ -52,17 +72,38 @@ const undoable = function (reducer, options = {}) {
                     };
                 }
 
-                let lastChange;
+                let changesToApply;
                 let newPast;
                 let newPresent;
                 let newFuture;
 
                 for (let i = 1; i <= actionCount; i++) {
+                    
+                    let endIndex = past.length - i;
 
+                    // 
+                    if (changesToApply === GROUPBEGIN){
+                        for (endIndex; endIndex >= 0; endIndex--){
+                            if (past[endIndex] === GROUPEND) break;
+                        }
+
+                        if (endIndex === 0 && past[endIndex] !== GROUPEND){
+                            throw "Found beginning of group but no end! Cannot undo!";
+                        }
+
+                        changesToApply = past.slice(0, endIndex);
+                    } else {
+                        changesToApply = past[endIndex];
+                    }
+
+                    for (let c = 0; c < changesToApply.length; c++){
+
+                    }
+
+                    newPast = past.slice(0, endIndex);
+                    
                     // We use obj destructuring above, and so need
                     // to create a new reference to edit the state
-                    lastChange = past[past.length - i];
-                    newPast = past.slice(0, past.length - i);
                     newPresent = !!newPresent ? newPresent : _.cloneDeep(present);
 
                     // Need to wrap present in object if state is
@@ -73,15 +114,15 @@ const undoable = function (reducer, options = {}) {
                     }
 
                     // Revert the changes applied to the state
-                    for (var j = 0; j < lastChange.length; j++) {
-                        diff.revertChange(newPresent, true, lastChange[j]);
+                    for (var j = 0; j < changesToApply.length; j++) {
+                        diff.revertChange(newPresent, true, changesToApply[j]);
                     }
 
                     // Unwrap array if state is an array
                     newPresent = Array.isArray(newPresent) ? newPresent[`${WRAPKEY}`] : newPresent;
 
                     // Update the future array
-                    newFuture = [lastChange, ...(!!newFuture ? newFuture : future)];
+                    newFuture = [changesToApply, ...(!!newFuture ? newFuture : future)];
 
                     if (newPast.length === 0) break;
                 }
@@ -92,7 +133,7 @@ const undoable = function (reducer, options = {}) {
                     future: newFuture
                 };
             }
-            case REDOSTR: {
+            case REDOACTION: {
                 if (future.length === 0) {
                     return {
                         past,
@@ -107,11 +148,12 @@ const undoable = function (reducer, options = {}) {
                 let newFuture;
 
                 for (let i = 1; i <= actionCount; i++) {
+                    
+                    lastChange = future[i - 1];
+                    newFuture = future.slice(i);
 
                     // We use obj destructuring above, and so need
                     // to create a new reference to edit the state
-                    lastChange = future[i - 1];
-                    newFuture = future.slice(i);
                     newPresent = !!newPresent ? newPresent : _.cloneDeep(present);
 
                     // Need to wrap present in object if state is
@@ -164,7 +206,7 @@ const undoable = function (reducer, options = {}) {
                 }
 
                 return {
-                    past: [...past.slice(past.length === options.maxHistory ? 1 : 0), actionDiff], // If maxHistory is defined, don't store than x number of events in the past                        
+                    past: [...past.slice(past.length === options.maxHistory ? 1 : 0), actionDiff], // If maxHistory is defined, don't store than x number of events in the past
                     present: newPresent,
                     future: []
                 };
@@ -175,6 +217,7 @@ const undoable = function (reducer, options = {}) {
 
 export {
     UNDO,
-    REDO
+    REDO,
+    CLEAR
 };
 export default undoable;
