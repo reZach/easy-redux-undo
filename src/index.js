@@ -5,22 +5,202 @@ const _ = require("lodash");
 const diff = require("deep-diff").diff;
 
 const WRAPKEY = "__wrapper";
+const DEBUGPREPEND = "[easy-redux-undo]=>";
 const LIBRARYPREFIX = "@@easy-redux-undo/";
 const UNDOACTION = `${LIBRARYPREFIX}UNDO`;
 const REDOACTION = `${LIBRARYPREFIX}REDO`;
 const CLEARACTION = `${LIBRARYPREFIX}CLEAR`;
-const GROUPBEGIN = `${LIBRARYPREFIX}GROUPBEGIN`;
-const GROUPEND = `${LIBRARYPREFIX}GROUPEND`;
+const GROUPBEGINACTION = `${LIBRARYPREFIX}GROUPBEGIN`;
+const GROUPENDACTION = `${LIBRARYPREFIX}GROUPEND`;
 const UNDO = createAction(UNDOACTION);
 const REDO = createAction(REDOACTION);
 const CLEAR = createAction(CLEARACTION);
+const GROUPBEGIN = createAction(GROUPBEGINACTION);
+const GROUPEND = createAction(GROUPENDACTION);
 
 const defaultOptions = {
     maxHistory: 100,
     undoType: UNDOACTION,
     redoType: REDOACTION,
-    clearType: CLEARACTION
+    clearType: CLEARACTION,
+    groupBeginType: GROUPBEGINACTION,
+    groupEndType: GROUPENDACTION
 };
+
+/** @description Undos an action in the store, or a group of actions if undo encounters a group
+ * @returns {object} An object of the updated state in the store
+ * @param {object} past 
+ * @param {object} present 
+ * @param {object} future 
+ * @param {object} updPast The previous past from a prior undo call, if calling undo for the first time, this value should be undefined
+ * @param {object} updPresent The previous present from a prior undo call, if calling undo for the first time, this value should be undefined
+ * @param {object} updFuture The previous future from a prior undo call, if calling undo for the first time, this value should be undefined
+ */
+const undo = function (past, present, future, updPast = undefined, updPresent = undefined, updFuture = undefined) {
+    let newPast = !!updPast ? updPast : past;
+    let newPresent;
+    let newFuture = !!updFuture ? updFuture : future;
+    let undoingGroup = false;
+
+    let endIndex = newPast.length - 1;
+    let changesToApply = newPast[endIndex];
+
+    // If we are undoing a group,
+    // grab all actions in that group
+    if (changesToApply === GROUPENDACTION) {        
+        let startIndex = endIndex - 1;
+
+        // Find the matching group begin action
+        for (startIndex; startIndex >= 0; startIndex--) {
+            if (newPast[startIndex] === GROUPBEGINACTION) break;
+        }
+
+        // Throw if didn't find closed group
+        if (startIndex === 0 && newPast[startIndex] !== GROUPBEGINACTION) {
+            throw `${DEBUGPREPEND} did not find a closed group of actions to undo, did you forget to send a '${GROUPBEGINACTION}' action?`;
+        }
+
+        // Store all changes as part of this group to undo
+        changesToApply = newPast.slice(startIndex + 1, endIndex);
+
+        // Update the endIndex variable so we can make use of
+        // it outside of this 'if' statement
+        endIndex = startIndex;
+
+        undoingGroup = true;    
+    }
+
+    // Store the new past after we undo the given action/s
+    newPast = newPast.slice(0, endIndex);
+    
+    // Need to deep clone here because otherwise the
+    // 'diff' function below complains because we can't edit
+    // the redux store values directly
+    newPresent = !!updPresent ? updPresent : _.cloneDeep(present); 
+
+    // Need to wrap present in object if state is
+    // an array, because deep-diff can't handle
+    // comparisons of arrays
+    if (Array.isArray(newPresent)) {
+        newPresent[`${WRAPKEY}`] = newPresent;
+    }
+
+    // Revert the changes applied to the state
+    if (undoingGroup){
+        for (let j = 0; j < changesToApply.length; j++) {
+            for (let k = 0; k < changesToApply[j].length; k++) {
+                diff.revertChange(newPresent, true, changesToApply[j][k]);
+            }
+        }        
+    } else {
+        for (let i = 0; i < changesToApply.length; i++) {
+            diff.revertChange(newPresent, true, changesToApply[i]);
+        }
+    }
+    
+    // Unwrap array if state is an array
+    newPresent = Array.isArray(newPresent) ? newPresent[`${WRAPKEY}`] : newPresent;
+
+    // Update the future array
+    if (undoingGroup){
+        newFuture = [GROUPBEGINACTION, ...changesToApply, GROUPENDACTION, ...newFuture];
+    } else {
+        newFuture = [changesToApply, ...newFuture];
+    }    
+
+    return {
+        past: newPast,
+        present: newPresent,
+        future: newFuture
+    }
+}
+
+/** @description Redos an action in the store, or a group of actions if redo encounters a group
+ * @returns {object} An object of the updated state in the store
+ * @param {object} past 
+ * @param {object} present 
+ * @param {object} future 
+ * @param {object} updPast The previous past from a prior redo call, if calling redo for the first time, this value should be undefined
+ * @param {object} updPresent The previous present from a prior redo call, if calling redo for the first time, this value should be undefined
+ * @param {object} updFuture The previous future from a prior redo call, if calling redo for the first time, this value should be undefined
+ */
+const redo = function (past, present, future, updPast = undefined, updPresent = undefined, updFuture = undefined) {
+    let newPast = !!updPast ? updPast : past;
+    let newPresent;
+    let newFuture = !!updFuture ? updFuture : future;
+    let redoingGroup = false;
+
+    let startIndex = 1;
+    let changesToApply = newFuture[startIndex - 1];
+
+    // If we are undoing a group,
+    // grab all actions in that group
+    if (changeToApply === GROUPBEGINACTION) {
+
+        // Find the matching group begin action
+        for (startIndex; startIndex <= newFuture.length; startIndex++) {
+            if (newFuture[startIndex] === GROUPENDACTION) break;
+        }
+
+        // Throw if didn't find closed group
+        if (startIndex === newFuture.length - 1 && newFuture[startIndex] !== GROUPENDACTION) {
+            throw `${DEBUGPREPEND} did not find a closed group of actions to redo, something must have went wrong!`;
+        }
+
+        // Store all changes as part of this group to undo
+        changesToApply = newFuture.slice(0, startIndex);
+
+        // Update the startIndex variable so we can make use of
+        // it outside of this 'if' statement
+        startIndex = startIndex + 1;
+        
+        redoingGroup = true;    
+    }
+
+    // Update future array
+    newFuture = newFuture.slice(startIndex);
+    
+    // Need to deep clone here because otherwise the
+    // 'diff' function below complains because we can't edit
+    // the redux store values directly
+    newPresent = !!updPresent ? updPresent : _.cloneDeep(present); 
+
+    // Need to wrap present in object if state is
+    // an array, because deep-diff can't handle
+    // comparisons of arrays
+    if (Array.isArray(newPresent)) {
+        newPresent[`${WRAPKEY}`] = newPresent;
+    }
+
+    // Revert the changes applied to the state
+    if (redoingGroup){
+        for (let j = 0; j < changesToApply.length; j++) {
+            for (let k = 0; k < changesToApply[j].length; k++) {
+                diff.applyChange(newPresent, true, changesToApply[j][k]);
+            }
+        }        
+    } else {
+        for (let i = 0; i < changesToApply.length; i++) {
+            diff.applyChange(newPresent, true, changesToApply[i]);
+        }
+    }
+    
+    // Unwrap array if state is an array
+    newPresent = Array.isArray(newPresent) ? newPresent[`${WRAPKEY}`] : newPresent;
+
+    // Update the past array
+    if (redoingGroup){
+        newPast = [...newPast, GROUPBEGINACTION, ...changesToApply, GROUPENDACTION];
+    } else {
+        newPast = [...newPast, changesToApply];
+    }    
+
+    return {
+        past: newPast,
+        present: newPresent,
+        future: newFuture
+    }
+}
 
 const undoable = function (reducer, options = {}) {
     options = Object.assign(defaultOptions, options);
@@ -49,21 +229,26 @@ const undoable = function (reducer, options = {}) {
         let actionCount = typeof action.payload === "number" && action.payload > 0 ? action.payload : 1;
 
         switch (action.type) {
-            case GROUPBEGIN: {
+            case options.groupBeginType: {
                 return {
-                    past: [...past, GROUPBEGIN],
+                    past: [...past, GROUPBEGINACTION],
                     present,
                     future
-                };
+                };              
             }
-            case GROUPEND: {
-                return {
-                    past: [...past, GROUPEND],
-                    present,
-                    future
-                };
+            case options.groupEndType: {
+                if (past[past.length - 1] === GROUPBEGINACTION){
+                    console.warn(`${DEBUGPREPEND} did not add '${GROUPENDACTION}' action; detected that the previous action was '${GROUPBEGINACTION}' - this would result in an empty group!`);
+                    break;
+                } else {
+                    return {
+                        past: [...past, GROUPENDACTION],
+                        present,
+                        future
+                    };
+                }                
             }
-            case UNDOACTION: {
+            case options.undoType: {
                 if (past.length === 0) {
                     return {
                         past,
@@ -72,68 +257,16 @@ const undoable = function (reducer, options = {}) {
                     };
                 }
 
-                let changesToApply;
-                let newPast;
-                let newPresent;
-                let newFuture;
-
+                let result = {};
                 for (let i = 1; i <= actionCount; i++) {
-                    
-                    let endIndex = past.length - i;
+                    result = undo(past, present, future, result.past, result.present, result.future);
 
-                    // 
-                    if (changesToApply === GROUPBEGIN){
-                        for (endIndex; endIndex >= 0; endIndex--){
-                            if (past[endIndex] === GROUPEND) break;
-                        }
-
-                        if (endIndex === 0 && past[endIndex] !== GROUPEND){
-                            throw "Found beginning of group but no end! Cannot undo!";
-                        }
-
-                        changesToApply = past.slice(0, endIndex);
-                    } else {
-                        changesToApply = past[endIndex];
-                    }
-
-                    for (let c = 0; c < changesToApply.length; c++){
-
-                    }
-
-                    newPast = past.slice(0, endIndex);
-                    
-                    // We use obj destructuring above, and so need
-                    // to create a new reference to edit the state
-                    newPresent = !!newPresent ? newPresent : _.cloneDeep(present);
-
-                    // Need to wrap present in object if state is
-                    // an array, because deep-diff can't handle
-                    // comparisons of arrays
-                    if (Array.isArray(newPresent)) {
-                        newPresent[`${WRAPKEY}`] = newPresent;
-                    }
-
-                    // Revert the changes applied to the state
-                    for (var j = 0; j < changesToApply.length; j++) {
-                        diff.revertChange(newPresent, true, changesToApply[j]);
-                    }
-
-                    // Unwrap array if state is an array
-                    newPresent = Array.isArray(newPresent) ? newPresent[`${WRAPKEY}`] : newPresent;
-
-                    // Update the future array
-                    newFuture = [changesToApply, ...(!!newFuture ? newFuture : future)];
-
-                    if (newPast.length === 0) break;
+                    if (result.past.length === 0) break;
                 }
 
-                return {
-                    past: newPast,
-                    present: newPresent,
-                    future: newFuture
-                };
+                return result;
             }
-            case REDOACTION: {
+            case options.redoType: {
                 if (future.length === 0) {
                     return {
                         past,
@@ -142,46 +275,14 @@ const undoable = function (reducer, options = {}) {
                     };
                 }
 
-                let lastChange;
-                let newPast;
-                let newPresent;
-                let newFuture;
-
+                let result = {};
                 for (let i = 1; i <= actionCount; i++) {
-                    
-                    lastChange = future[i - 1];
-                    newFuture = future.slice(i);
+                    result = redo(past, present, future, result.past, result.present, result.future);
 
-                    // We use obj destructuring above, and so need
-                    // to create a new reference to edit the state
-                    newPresent = !!newPresent ? newPresent : _.cloneDeep(present);
-
-                    // Need to wrap present in object if state is
-                    // an array, because deep-diff can't handle
-                    // comparisons of arrays
-                    if (Array.isArray(newPresent)) {
-                        newPresent[`${WRAPKEY}`] = newPresent;
-                    }
-
-                    // Apply the changes to the state
-                    for (var k = 0; k < lastChange.length; k++) {
-                        diff.applyChange(newPresent, true, lastChange[k]);
-                    }
-
-                    // Unwrap array if state is an array
-                    newPresent = Array.isArray(newPresent) ? newPresent[`${WRAPKEY}`] : newPresent;
-
-                    // Update the past array
-                    newPast = [...(!!newPast ? newPast : past), lastChange];
-
-                    if (newFuture.length === 0) break;
+                    if (result.past.length === 0) break;
                 }
 
-                return {
-                    past: newPast,
-                    present: newPresent,
-                    future: newFuture
-                };
+                return result;
             }
             default: {
                 const newPresent = reducer(present, action);
@@ -218,6 +319,8 @@ const undoable = function (reducer, options = {}) {
 export {
     UNDO,
     REDO,
-    CLEAR
+    CLEAR,
+    GROUPBEGIN,
+    GROUPEND
 };
 export default undoable;
