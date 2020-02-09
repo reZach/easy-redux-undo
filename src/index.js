@@ -40,7 +40,7 @@ const undoable = function (reducer, options = {}) {
      * @param {object} updPresent The previous present from a prior undo call, if calling undo for the first time, this value should be undefined
      * @param {object} updFuture The previous future from a prior undo call, if calling undo for the first time, this value should be undefined
      */
-    const undo = function (past, present, future, updPast = undefined, updPresent = undefined, updFuture = undefined) {
+    const undo = function (past, present, future, updPast = undefined, updPresent = undefined, updFuture = undefined) {        
         let newPast = !!updPast ? updPast : past;
         let newPresent;
         let newFuture = !!updFuture ? updFuture : future;
@@ -66,7 +66,7 @@ const undoable = function (reducer, options = {}) {
 
             // Store all changes as part of this group to undo
             changesToApply = [];
-            for (let i = endIndex - 1; i >= startIndex; i--){
+            for (let i = endIndex - 1; i >= startIndex + 1; i--){
                 changesToApply.push(newPast[i]);
             }
 
@@ -158,7 +158,7 @@ const undoable = function (reducer, options = {}) {
             // Store all changes as part of this group to undo
             changesToApply = [];
             for (let i = endIndex - 1; i >= startIndex; i--){
-                changesToApply.push(newPast[i]);
+                changesToApply.push(newFuture[i]);
             }
 
             // Update the startIndex variable so we can make use of
