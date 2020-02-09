@@ -24,7 +24,9 @@ const defaultOptions = {
     redoType: REDOACTION,
     clearType: CLEARACTION,
     groupBeginType: GROUPBEGINACTION,
-    groupEndType: GROUPENDACTION
+    groupEndType: GROUPENDACTION,
+    include: [],
+    exclude: []
 };
 
 
@@ -40,7 +42,7 @@ const undoable = function (reducer, options = {}) {
      * @param {object} updPresent The previous present from a prior undo call, if calling undo for the first time, this value should be undefined
      * @param {object} updFuture The previous future from a prior undo call, if calling undo for the first time, this value should be undefined
      */
-    const undo = function (past, present, future, updPast = undefined, updPresent = undefined, updFuture = undefined) {        
+    const undo = function (past, present, future, updPast = undefined, updPresent = undefined, updFuture = undefined) {
         let newPast = !!updPast ? updPast : past;
         let newPresent;
         let newFuture = !!updFuture ? updFuture : future;
@@ -66,7 +68,7 @@ const undoable = function (reducer, options = {}) {
 
             // Store all changes as part of this group to undo
             changesToApply = [];
-            for (let i = endIndex - 1; i >= startIndex + 1; i--){
+            for (let i = endIndex - 1; i >= startIndex + 1; i--) {
                 changesToApply.push(newPast[i]);
             }
 
@@ -157,7 +159,7 @@ const undoable = function (reducer, options = {}) {
 
             // Store all changes as part of this group to undo
             changesToApply = [];
-            for (let i = endIndex - 1; i >= startIndex; i--){
+            for (let i = endIndex - 1; i >= startIndex; i--) {
                 changesToApply.push(newFuture[i]);
             }
 
@@ -239,22 +241,29 @@ const undoable = function (reducer, options = {}) {
         switch (action.type) {
             case options.groupBeginType: {
                 return {
-                    past: [...past, GROUPBEGINACTION],
+                    past: [...past, options.groupBeginType],
                     present,
                     future
                 };
             }
             case options.groupEndType: {
-                if (past[past.length - 1] === GROUPBEGINACTION) {
-                    console.warn(`${DEBUGPREPEND} did not add '${GROUPENDACTION}' action; detected that the previous action was '${GROUPBEGINACTION}' - this would result in an empty group!`);
+                if (past[past.length - 1] === options.groupBeginType) {
+                    console.warn(`${DEBUGPREPEND} did not add '${options.groupEndType}' action; detected that the previous action was '${options.groupBeginType}' - this would result in an empty group!`);
                     break;
                 } else {
                     return {
-                        past: [...past, GROUPENDACTION],
+                        past: [...past, options.groupEndType],
                         present,
                         future
                     };
                 }
+            }
+            case options.clearType: {
+                return {
+                    past: [],
+                    present,
+                    future: []
+                };
             }
             case options.undoType: {
                 if (past.length === 0) {
@@ -265,14 +274,14 @@ const undoable = function (reducer, options = {}) {
                     };
                 }
 
-                let result = {};
+                let undoResult = {};
                 for (let i = 1; i <= actionCount; i++) {
-                    result = undo(past, present, future, result.past, result.present, result.future);
+                    undoResult = undo(past, present, future, undoResult.past, undoResult.present, undoResult.future);
 
-                    if (result.past.length === 0) break;
+                    if (undoResult.past.length === 0) break;
                 }
 
-                return result;
+                return undoResult;
             }
             case options.redoType: {
                 if (future.length === 0) {
@@ -283,14 +292,14 @@ const undoable = function (reducer, options = {}) {
                     };
                 }
 
-                let result = {};
+                let redoResult = {};
                 for (let i = 1; i <= actionCount; i++) {
-                    result = redo(past, present, future, result.past, result.present, result.future);
+                    redoResult = redo(past, present, future, redoResult.past, redoResult.present, redoResult.future);
 
-                    if (result.past.length === 0) break;
+                    if (redoResult.past.length === 0) break;
                 }
 
-                return result;
+                return redoResult;
             }
             default: {
                 const newPresent = reducer(present, action);
@@ -313,9 +322,53 @@ const undoable = function (reducer, options = {}) {
                 if (typeof actionDiff === "undefined") {
                     return state;
                 }
+                
+                let totalHistory = 0;
+                let inGroup = false;
+                let newPast = [actionDiff];
+
+                // If we have a group that hasn't closed, don't count it's
+                // elements in the total history
+                for (let i = past.length - 1; i >= 0; i--){
+                    if (past[i] === options.groupEndType) break;
+                    if (past[i] === options.groupBeginType) {
+                        inGroup = true;
+                        break;
+                    }
+                }
+
+                // Count up history; truncate any past events if we extend past the maxHistory
+                for (let i = past.length - 1; i >= 0; i--) {                                        
+                    if (past[i] === options.groupEndType) {
+                        totalHistory = totalHistory + 1;
+                        inGroup = true;
+                    } else if (past[i] === options.groupBeginType) {
+                        inGroup = false;   
+                    } else if (!inGroup) totalHistory = totalHistory + 1;
+
+                    // Truncate past if it exceeds our max history limit
+                    if (totalHistory >= options.maxHistory - 1 || i === 0) {
+
+                        // if our index is on a groupend action,
+                        // update it to pull the entire group
+                        if (past[i] === options.groupEndType){
+                            let j = i;
+                            for (j; j >= 0; j--){
+                                if (past[j] === options.groupBeginType){
+                                    break;
+                                }
+                            }
+                            newPast = [...past.slice(j), actionDiff];
+                        } else {
+                            newPast = [...past.slice(i), actionDiff];
+                        }
+                        
+                        break;
+                    }
+                }
 
                 return {
-                    past: [...past.slice(past.length === options.maxHistory ? 1 : 0), actionDiff], // If maxHistory is defined, don't store than x number of events in the past
+                    past: newPast,
                     present: newPresent,
                     future: []
                 };
