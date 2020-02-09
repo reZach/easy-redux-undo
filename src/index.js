@@ -33,6 +33,11 @@ const defaultOptions = {
 const undoable = function (reducer, options = {}) {
     options = Object.assign(defaultOptions, options);
 
+    if (options.include.length > 0 && options.exclude.length > 0){
+        console.error(`${DEBUGPREPEND} cannot have both a 'include' and 'exclude' property, choose one or the other!`);
+        return;
+    }
+
     /** @description Undos an action in the store, or a group of actions if undo encounters a group
      * @returns {object} An object of the updated state in the store
      * @param {object} past 
@@ -321,6 +326,16 @@ const undoable = function (reducer, options = {}) {
                 // return the initial state
                 if (typeof actionDiff === "undefined") {
                     return state;
+                }
+
+                // If we are including/excluding any actions; short-circuit if possible
+                if ((options.include.length > 0 && !options.include.includes(action.type)) ||
+                    (options.exclude.length > 0 && options.exclude.includes(action.type))){
+                    return {
+                        past,
+                        present: newPresent,
+                        future: []
+                    };
                 }
                 
                 let totalHistory = 0;
