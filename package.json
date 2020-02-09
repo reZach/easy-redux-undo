@@ -1,7 +1,7 @@
 {
   "name": "easy-redux-undo",
   "version": "1.0.0",
-  "description": "",
+  "description": "The easy way to add undo/redo in redux.",
   "main": "./lib/index.js",
   "scripts": {
     "build": "npx babel ./src -d ./lib"
@@ -11,7 +11,7 @@
     "url": "git+https://github.com/reZach/easy-redux-undo.git"
   },
   "keywords": [],
-  "author": "",
+  "author": "reZach",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/reZach/easy-redux-undo/issues"
