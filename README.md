@@ -1,6 +1,16 @@
 # easy-redux-undo
 Literally the _easiest_ redux undo/redo library. In addition to being easy, we also offer a collection of great features that you will use all the time!
 
+## Feature-list
+- Holds past/future history
+- Stores actions as diffs intead of storing the whole state
+- Can dispatch multiple undo/redos as a single action
+- Able to clear history
+- Actions can be undo/redo'd as a group
+- Can include/exclude actions from being undo/redo-able
+- Configurable options (max history limit, custom action names, etc.)
+- Just _works_ out of the box
+
 ## How to use
 ```
 npm i easy-redux-undo
@@ -127,16 +137,6 @@ export default connect(mapStateToProps, mapDispatch)(MyComponent);
 ```
 
 You are done! ✔️
-
-## Feature-list
-- Holds past/future history
-- Stores actions as diffs intead of storing the whole state
-- Can dispatch multiple undo/redos as a single action
-- Able to clear history
-- Actions can be undo/redo'd as a group
-- Can include/exclude actions from being undo/redo-able
-- Configurable options (max history limit, custom action names, etc.)
-- Just _works_ out of the box
 
 ## FAQ
 ### Why do I need to include `.present` in my component?
