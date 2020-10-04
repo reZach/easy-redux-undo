@@ -1,6 +1,12 @@
 # easy-redux-undo
 Literally the _easiest_ redux undo/redo library. In addition to being easy, we also offer a collection of great features that you will use all the time!
 
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=reZach_easy-redux-undo&metric=alert_status)](https://sonarcloud.io/dashboard?id=reZach_easy-redux-undo)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=reZach_easy-redux-undo&metric=security_rating)](https://sonarcloud.io/dashboard?id=reZach_easy-redux-undo)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=reZach_easy-redux-undo&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=reZach_easy-redux-undo)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=reZach_easy-redux-undo&metric=bugs)](https://sonarcloud.io/dashboard?id=reZach_easy-redux-undo)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=reZach_easy-redux-undo&metric=vulnerabilities)](https://sonarcloud.io/dashboard?id=reZach_easy-redux-undo)
+
 ## Feature-list
 - Holds past/future history
 - Stores actions as diffs intead of storing the whole state

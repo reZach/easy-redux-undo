@@ -241,7 +241,7 @@ const undoable = function (reducer, options = {}) {
 
         // We can pass a number for the number of undo/redos to do;
         // parse this value out here
-        let actionCount = typeof action.payload === "number" && action.payload > 0 ? action.payload : 1;
+        const actionCount = typeof action.payload === "number" && action.payload > 0 ? action.payload : 1;
 
         switch (action.type) {
             case options.groupBeginType: {
