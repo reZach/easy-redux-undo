@@ -68,7 +68,7 @@ const undoable = function (reducer, options = {}) {
 
             // Throw if didn't find closed group
             if (startIndex === 0 && newPast[startIndex] !== options.groupBeginType) {
-                throw `${DEBUGPREPEND} did not find a closed group of actions to undo, did you forget to send a '${options.groupBeginType}' action?`;
+                throw new Error(`${DEBUGPREPEND} did not find a closed group of actions to undo, did you forget to send a '${options.groupBeginType}' action?`);
             }
 
             // Store all changes as part of this group to undo
@@ -159,7 +159,7 @@ const undoable = function (reducer, options = {}) {
 
             // Throw if didn't find closed group
             if (endIndex === newFuture.length - 1 && newFuture[endIndex] !== options.groupBeginType) {
-                throw `${DEBUGPREPEND} did not find a closed group of actions to redo, something must have went wrong!`;
+                throw new Error(`${DEBUGPREPEND} did not find a closed group of actions to redo, something must have went wrong!`);
             }
 
             // Store all changes as part of this group to undo
