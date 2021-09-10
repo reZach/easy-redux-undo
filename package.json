@@ -1,6 +1,6 @@
 {
   "name": "easy-redux-undo",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "The easy way to add undo/redo in redux.",
   "main": "./lib/index.js",
   "scripts": {
@@ -10,7 +10,11 @@
     "type": "git",
     "url": "git+https://github.com/reZach/easy-redux-undo.git"
   },
-  "keywords": ["undo", "redo", "state change"],
+  "keywords": [
+    "undo",
+    "redo",
+    "state change"
+  ],
   "author": "reZach",
   "license": "MIT",
   "bugs": {
@@ -18,13 +22,13 @@
   },
   "homepage": "https://github.com/reZach/easy-redux-undo#readme",
   "devDependencies": {
-    "@babel/cli": "^7.13.16",
-    "@babel/core": "^7.13.16",
-    "@babel/preset-env": "^7.13.15",
+    "@babel/cli": "^7.15.4",
+    "@babel/core": "^7.15.5",
+    "@babel/preset-env": "^7.15.6",
     "babel-preset-minify": "^0.5.1"
   },
   "dependencies": {
-    "@reduxjs/toolkit": "1.5.1",
+    "@reduxjs/toolkit": "1.6.1",
     "deep-diff": "^1.0.2",
     "lodash": "^4.17.21"
   }
